@@ -36,9 +36,10 @@ import useCustLogin from "./api/useCustLogin";
 const navItems = ["Scan QR", "Modify Profile", "LogOut"];
 
 const App = (props) => {
+  let isFirst = true;
   const { data, isLoading } = useApps();
   const [scanner, setScanner] = React.useState(false);
-  const [scanResultWebCam, setScanResultWebCam] = React.useState(true);
+  const [scanResultWebCam, setScanResultWebCam] = React.useState(false);
   const qrRef = React.useRef(null);
   const { mutateAsync, isLoading: loading } = useCustLogin();
   function timeout(delay) {
@@ -99,12 +100,14 @@ const App = (props) => {
                     //onScan={handleScanWebCam}
 
                     onResult={async (r) => {
-                      if (r) {
-                        await mutateAsync({
+                      if (r && isFirst) {
+                        isFirst = false;
+                        mutateAsync({
                           transaction_id: JSON.parse(r.text).transaction_id,
                           is_approved: true,
                         });
-                        window.location.reload();
+                        await timeout(4000);
+                        //setScanner(false);
                       }
 
                       // if (r != undefined) {

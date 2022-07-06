@@ -12,6 +12,8 @@ const setData = async (data: any, authorization?: string) => {
   });
   const res = await raw.json();
   alert(raw.status == 200 ? res.data.message : res.errors[0]);
+  window.location.reload();
+
   return res;
 };
 
