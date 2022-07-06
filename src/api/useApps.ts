@@ -1,8 +1,9 @@
 import { useQuery } from "react-query";
+import { baseUrl } from "../constant";
 
 const useApps = () => {
   return useQuery(["apps"], async () => {
-    const res = await fetch(`https://lit-shelf-15554.herokuapp.com/api/apps`, {
+    const res = await fetch(`${baseUrl}apps`, {
       headers: { authorization: "efd7ff29-5072-4121-8dc8-7a65f9e5bbbd" },
     });
     const data = await res.json();

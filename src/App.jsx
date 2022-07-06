@@ -12,8 +12,12 @@ import MenuIcon from "@mui/icons-material/Menu";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import { QrReader } from "react-qr-reader";
+import { useForm } from "react-hook-form";
+
 import {
   Card,
+  CircularProgress,
   Dialog,
   DialogContent,
   Grid,
@@ -26,97 +30,99 @@ import { CenterFocusStrong, Delete, Edit } from "@mui/icons-material";
 import { DataGrid, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import dayjs from "dayjs";
 import useApps from "./api/useApps";
+import useCreateApp from "./api/useCreateApp";
+import useCustLogin from "./api/useCustLogin";
 
-interface Props {
-  /**
-   * Injected by the documentation to work in an iframe.
-   * You won't need it on your project.
-   */
-  window?: () => Window;
-}
-
-const drawerWidth = 240;
 const navItems = ["Scan QR", "Modify Profile", "LogOut"];
 
-export default function DrawerAppBar(props: Props) {
-  const { window } = props;
-  const [mobileOpen, setMobileOpen] = React.useState(false);
+const App = (props) => {
   const { data, isLoading } = useApps();
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const drawer = (
-    <Box onClick={handleDrawerToggle} sx={{ textAlign: "center" }}>
-      <Typography variant="h6" sx={{ my: 2 }}>
-        Welcome !!!
-      </Typography>
-      <Divider />
-      <List>
-        {navItems.map((item) => (
-          <ListItem key={item} disablePadding>
-            <ListItemButton sx={{ textAlign: "center", paddingLeft: 10 }}>
-              <ListItemText primary={item} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-    </Box>
-  );
-
-  const container =
-    window !== undefined ? () => window().document.body : undefined;
-
+  const [scanner, setScanner] = React.useState(false);
+  const [scanResultWebCam, setScanResultWebCam] = React.useState(true);
+  const qrRef = React.useRef(null);
+  const { mutateAsync, isLoading: loading } = useCustLogin();
+  function timeout(delay) {
+    return new Promise((res) => setTimeout(res, delay));
+  }
   return (
     <Box sx={{ display: "flex" }}>
-      <AppBar component="nav" color={"secondary"}>
+      <AppBar color={"secondary"}>
         <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
           <Typography
             variant="h6"
-            component="div"
             sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
           >
             Welcome !!
           </Typography>
-          <Box sx={{ display: { xs: "none", sm: "block" } }}>
-            {navItems.map((item) => (
-              <Button key={item} sx={{ marginLeft: 1 }}>
-                {item}
-              </Button>
-            ))}
+          <Box>
+            {navItems.map((item) =>
+              item == "Scan QR" ? (
+                <>
+                  <Button
+                    key={item}
+                    sx={{ marginLeft: 1 }}
+                    onClick={() => {
+                      setScanner(true);
+                      //onScanFile();
+                    }}
+                  >
+                    {item}
+                  </Button>
+                </>
+              ) : (
+                <Button key={item} sx={{ marginLeft: 1 }}>
+                  {item}
+                </Button>
+              )
+            )}
           </Box>
+          <Dialog
+            open={scanner}
+            onClose={() => {
+              setScanner(false);
+              window.location.reload();
+            }}
+          >
+            <DialogContent>
+              <Stack spacing={2}>
+                <Typography variant="body1">Scan Your QR Code</Typography>
+                {!loading ? (
+                  <QrReader
+                    ref={qrRef}
+                    style={{
+                      width: 1000,
+                      height: 700,
+                      display: "flex",
+                      justifyContent: "center",
+                    }}
+                    //onError={handleErrorWebCam}
+                    //onScan={handleScanWebCam}
+
+                    onResult={async (r) => {
+                      if (r) {
+                        await mutateAsync({
+                          transaction_id: JSON.parse(r.text).transaction_id,
+                          is_approved: true,
+                        });
+                        window.location.reload();
+                      }
+
+                      // if (r != undefined) {
+
+                      // }
+                    }}
+                  />
+                ) : (
+                  <Stack alignItems={"center"}>
+                    <CircularProgress />
+                  </Stack>
+                )}
+              </Stack>
+            </DialogContent>
+          </Dialog>
         </Toolbar>
       </AppBar>
-      <Box component="nav">
-        <Drawer
-          container={container}
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: "block", sm: "none" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-      </Box>
+
       <Box component="main" style={{ flex: 1 }}>
         <Toolbar />
         <img
@@ -138,20 +144,24 @@ export default function DrawerAppBar(props: Props) {
       </Box>
     </Box>
   );
-}
-interface AppGridProps {
-  title: string;
-  isLoading: boolean;
-  data: {
-    name: string;
-    webhook: string;
-  }[];
-}
+};
 
-const AppGrid = (props: AppGridProps) => {
+const AppGrid = (props) => {
   const [dig, setDig] = React.useState(false);
   const [form, setForm] = React.useState(false);
   const [edit, setEdit] = React.useState(false);
+  const ar = [1, 2, 3, 4];
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
+  const { mutateAsync, isLoading } = useCreateApp();
+
+  const onSubmit = (d) => {
+    mutateAsync(d);
+    setForm(false);
+  };
 
   return (
     <>
@@ -176,37 +186,37 @@ const AppGrid = (props: AppGridProps) => {
         </Stack>
 
         <Grid container spacing={2}>
-          {props.isLoading ? (
-            <Grid item xs={4}>
-              <Card sx={{ padding: 4, cursor: "pointer" }}>
-                <Skeleton width={"100%"} />
-              </Card>
-            </Grid>
-          ) : (
-            props.data.map((d) => (
-              <Grid item xs={3}>
-                <Card
-                  sx={{ padding: 4, cursor: "pointer", position: "relative" }}
-                >
-                  <div style={{ position: "absolute", top: 0, right: 0 }}>
-                    <IconButton onClick={() => setEdit(true)}>
-                      <Edit color="primary" />
-                    </IconButton>
-                  </div>
-                  <Stack flex={1} alignItems={"center"} spacing={1}>
-                    <Typography variant="h6">{d.name}</Typography>
-                    <Typography
-                      variant="body1"
-                      color="blue"
-                      sx={{ textDecoration: "underline" }}
-                    >
-                      <div onClick={() => setDig(true)}>{d.webhook}</div>
-                    </Typography>
-                  </Stack>
-                </Card>
-              </Grid>
-            ))
-          )}
+          {props.isLoading || isLoading
+            ? ar.map((e) => (
+                <Grid item xs={3}>
+                  <Card sx={{ padding: 4, cursor: "pointer" }}>
+                    <Skeleton width={"100%"} />
+                  </Card>
+                </Grid>
+              ))
+            : props.data.map((d) => (
+                <Grid item xs={"auto"}>
+                  <Card
+                    sx={{ padding: 4, cursor: "pointer", position: "relative" }}
+                  >
+                    <div style={{ position: "absolute", top: 0, right: 0 }}>
+                      <IconButton onClick={() => setEdit(true)}>
+                        <Edit color="primary" />
+                      </IconButton>
+                    </div>
+                    <Stack flex={1} alignItems={"center"} spacing={1}>
+                      <Typography variant="h6">{d.name}</Typography>
+                      <Typography
+                        variant="body1"
+                        color="blue"
+                        sx={{ textDecoration: "underline" }}
+                      >
+                        <div onClick={() => setDig(true)}>{d.webhook}</div>
+                      </Typography>
+                    </Stack>
+                  </Card>
+                </Grid>
+              ))}
         </Grid>
       </Stack>
       <Dialog open={dig} onClose={() => setDig(false)}>
@@ -221,12 +231,36 @@ const AppGrid = (props: AppGridProps) => {
       </Dialog>
       <Dialog open={form} onClose={() => setForm(false)}>
         <DialogContent>
-          <Stack spacing={3}>
-            <Typography variant="h6">Create App</Typography>
-            <TextField label="Name" />
-            <TextField label="WebHook" />
-            <Button variant="contained">Create</Button>
-          </Stack>
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <Stack spacing={3}>
+              <Typography variant="h6">Create App</Typography>
+              <Stack>
+                <TextField
+                  label="Name"
+                  {...register("name", { required: true })}
+                />
+                {errors.name && (
+                  <Typography variant="caption" color="red">
+                    This field is required
+                  </Typography>
+                )}
+              </Stack>
+              <Stack>
+                <TextField
+                  label="Webhook"
+                  {...register("webhook", { required: true })}
+                />
+                {errors.webHook && (
+                  <Typography variant="caption" color="red">
+                    This field is required
+                  </Typography>
+                )}
+              </Stack>
+              <Button variant="contained" type="submit">
+                Create
+              </Button>
+            </Stack>
+          </form>
         </DialogContent>
       </Dialog>
       <Dialog open={edit} onClose={() => setEdit(false)}>
@@ -234,7 +268,7 @@ const AppGrid = (props: AppGridProps) => {
           <Stack spacing={3}>
             <Typography variant="h6">Edit App</Typography>
             <TextField label="WebHook" />
-            <Button variant="contained">reGenerate Secret</Button>
+            <Button variant="contained">Regenerate Secret</Button>
 
             <Button variant="contained">Save</Button>
           </Stack>
@@ -256,14 +290,14 @@ const appList = [
   { appName: "XYZ.com" },
 ];
 
-const columns: GridColDef[] = [
+const columns = [
   { field: "id", headerName: "ID", flex: 0.5 },
   { field: "name", headerName: "Name", flex: 1 },
   {
     field: "last_login",
     headerName: "Last Loged In",
     flex: 1,
-    renderCell: (params: GridRenderCellParams<any, any, any>) => (
+    renderCell: (params) => (
       <Stack
         direction="row"
         alignItems="center"
@@ -312,14 +346,14 @@ const row = [
   },
 ];
 
-const columns1: GridColDef[] = [
+const columns1 = [
   { field: "id", headerName: "ID", flex: 0.5 },
   { field: "name", headerName: "Websites / App name", flex: 1 },
   {
     field: "last_login",
     headerName: "Last Loged In",
     flex: 1,
-    renderCell: (params: GridRenderCellParams<any, any, any>) => (
+    renderCell: (params) => (
       <Stack
         direction="row"
         alignItems="center"
@@ -367,3 +401,5 @@ const row1 = [
     last_login: dayjs(new Date()),
   },
 ];
+
+export default App;
